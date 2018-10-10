@@ -1,3 +1,5 @@
+// Screeps code v0.0.2
+
 var roleHarvester = require('role.Harvester');
 var roleUpgrader = require('role.Upgrader');
 var roleBuilder = require('role.Builder');
