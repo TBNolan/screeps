@@ -1,28 +1,55 @@
-// Screeps code v0.0.2
+// Screeps code v0.1.0
 
+/** TODO
+ * 1. Fix all screeps trying to mine; there's only 2 access points
+ * 2. Figure out how to get upgraders to use other mine node (right now, this is hacked by harvesting sources[1] instead of sources[0])
+ */
 
 var roleHarvester = require('role.Harvester');
 var roleUpgrader = require('role.Upgrader');
 var roleBuilder = require('role.Builder');
 var roleRepairer = require('role.Repairer');
 
-//******* Globals **********//
+//******* Globals **********/
 // Squad numbers
-var num_harvesters = 4;
+var num_harvesters = 2;
 var num_upgraders = 3;
 var num_builders = 2;
-var num_repairers = 2;
+var num_repairers = 1;
 
-//Worker builds
-var harvester_build = [MOVE, MOVE, WORK, WORK, WORK, CARRY, CARRY, CARRY]; //50+50+50+100+100+100+50+50 = 550
-var upgrader_build = [MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY, CARRY]; //50+50+50+50+50+100+100+50+50 = 550
-var builder_build = [MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
-var repairer_build = [MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
-var emergency_rebuild_base = [MOVE, MOVE, WORK, CARRY, CARRY];
+/**
+ * BODYPART_COST
+    "move": 50
+    "work": 100
+    "attack": 80
+    "carry": 50
+    "heal": 250
+    "ranged_attack": 150
+    "tough": 10
+    "claim": 600
+},
+*/
+//Calculate parts for workers
+var mainSpawnEnergyCap = Game.spawns.Spawn1.room.energyCapacityAvailable;
+var moveParts = (mainSpawnEnergyCap * (1/3))/50;
+var workParts = (mainSpawnEnergyCap * (1/3))/100;
+var carryParts = (mainSpawnEnergyCap * (1/3))/50;
+
+var creepBuild = [];
+for (i = 0; i < moveParts; i++){
+    creepBuild.push(MOVE);
+}
+for (i = 0; i < workParts; i++){
+    creepBuild.push(WORK);
+}
+for (i = 0; i < carryParts; i++){
+    creepBuild.push(CARRY);
+}
+
 //******* End Globals *******//
 
 module.exports.loop = function () {
-    
+
     //Clear dead creeps from memory
     for(var name in Memory.creeps) {
         if(!Game.creeps[name]) {
@@ -36,10 +63,10 @@ module.exports.loop = function () {
     //Oh crap, we have no harvesters
     if (harvesters == 0) {
         var newName = 'eHarvester' + Game.time;
-        var result = Game.spawns['Spawn1'].spawnCreep(emergency_rebuild_base, newName, 
+        var result = Game.spawns['Spawn1'].spawnCreep(creepBuild, newName, 
             {memory: {role: 'harvester'}});
         if(result == OK) {
-            console.log('Spawning new harvester: ' + newName + " With build: " + harvester_build);
+            console.log('Spawning new harvester: ' + newName + " With build: " + creepBuild);
         }
     }
     
@@ -55,30 +82,30 @@ module.exports.loop = function () {
     //Keep desired number of harvesters
     if(harvesters.length < num_harvesters) {
         var newName = 'Harvester' + Game.time;
-        var result = Game.spawns['Spawn1'].spawnCreep(harvester_build, newName, 
+        var result = Game.spawns['Spawn1'].spawnCreep(creepBuild, newName, 
             {memory: {role: 'harvester'}});
         if(result == OK) {
-            console.log('Spawning new harvester: ' + newName + " With build: " + harvester_build);
+            console.log('Spawning new harvester: ' + newName + " With build: " + creepBuild);
         }
     }
     
     //Keep desired number of upgraders
     else if(upgraders.length < num_upgraders) {
         var newName = 'Upgrader' + Game.time;
-        var result = Game.spawns['Spawn1'].spawnCreep(upgrader_build, newName, 
+        var result = Game.spawns['Spawn1'].spawnCreep(creepBuild, newName, 
             {memory: {role: 'upgrader'}});
         if(result == OK) {
-            console.log('Spawning new upgrader: ' + newName + " With build: " + upgrader_build);    
+            console.log('Spawning new upgrader: ' + newName + " With build: " + creepBuild);    
         }
     }
     
     //Keep desired number of builders
     else if(builders.length < num_builders) {
         var newName = 'Builder' + Game.time;
-        var result = Game.spawns['Spawn1'].spawnCreep(builder_build, newName, 
+        var result = Game.spawns['Spawn1'].spawnCreep(creepBuild, newName, 
             {memory: {role: 'builder'}});
         if(result == OK) {
-            console.log('Spawning new builder: ' + newName + " Wish build: " + builder_build);    
+            console.log('Spawning new builder: ' + newName + " Wish build: " + creepBuild);    
         }
         
     }
@@ -86,10 +113,10 @@ module.exports.loop = function () {
     //Keep desired number of repairers
     else if(repairers.length < num_repairers) {
         var newName = 'Repairer' + Game.time;
-        var result = Game.spawns['Spawn1'].spawnCreep(repairer_build, newName, 
+        var result = Game.spawns['Spawn1'].spawnCreep(creepBuild, newName, 
             {memory: {role: 'repairer'}});
         if(result == OK) {
-            console.log('Spawning new repairer: ' + newName + " With build: " + repairer_build);    
+            console.log('Spawning new repairer: ' + newName + " With build: " + creepBuild);    
         }
         
     }
