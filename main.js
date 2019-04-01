@@ -1,21 +1,25 @@
-// Screeps code v0.1.0
+// Screeps code v0.1.5
 
 /** TODO
  * 1. Fix all screeps trying to mine; there's only 2 access points
- * 2. Figure out how to get upgraders to use other mine node (right now, this is hacked by harvesting sources[1] instead of sources[0])
+ * 2. Optimize creepParts variables; leftover energy being unused due to fractions in Part Calculations
  */
 
 var roleHarvester = require('role.Harvester');
 var roleUpgrader = require('role.Upgrader');
 var roleBuilder = require('role.Builder');
 var roleRepairer = require('role.Repairer');
+var roleHauler = require('role.Hauler');
+var roleMiner = require('role.Miner');
 
 //******* Globals **********/
 // Squad numbers
-var num_harvesters = 2;
-var num_upgraders = 3;
+var num_harvesters = 0;
+var num_upgraders = 2;
 var num_builders = 2;
-var num_repairers = 1;
+var num_repairers = 2;
+var num_miners = 1;
+var num_haulers = 2;
 
 /**
  * BODYPART_COST
@@ -31,120 +35,168 @@ var num_repairers = 1;
 */
 //Calculate parts for workers
 var mainSpawnEnergyCap = Game.spawns.Spawn1.room.energyCapacityAvailable;
-var moveParts = (mainSpawnEnergyCap * (1/3))/50;
-var workParts = (mainSpawnEnergyCap * (1/3))/100;
-var carryParts = (mainSpawnEnergyCap * (1/3))/50;
 
-var creepBuild = [];
-for (i = 0; i < moveParts; i++){
-    creepBuild.push(MOVE);
-}
-for (i = 0; i < workParts; i++){
-    creepBuild.push(WORK);
-}
-for (i = 0; i < carryParts; i++){
-    creepBuild.push(CARRY);
+//Global build for Miners. They do not scale with Spawn Energy Cap. Requires min 550 energy
+//Efficient mining is 5 WORK parts per node.
+//Notice no carry parts as Miners will drop resources onto the ground
+var minerBuild = [WORK, WORK, WORK, WORK, WORK, MOVE];
+
+var haulerBuild = [MOVE, MOVE, CARRY, CARRY, CARRY, CARRY];
+
+
+if (mainSpawnEnergyCap < 550) {
+    //Level 1 controller 300 energy
+    harvesterBuild = [MOVE, MOVE, WORK, CARRY, CARRY];
+    builderBuild = [MOVE, MOVE, WORK, CARRY, CARRY];
+    upgraderBuild = [MOVE, MOVE, WORK, CARRY, CARRY];
+    repairerBuild = [MOVE, MOVE, WORK, CARRY, CARRY];
+} else if (mainSpawnEnergyCap < 800) {
+    //Level 2 controller 550 energy
+    harvesterBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
+    builderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
+    upgraderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
+    repairerBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
+} else if (mainSpawnEnergyCap < 1050) {
+    //Level 3 controller 800 energy
+    harvesterBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
+    builderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
+    upgraderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
+    repairerBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
+} else {
+    //Level 4+ controller 1050+ energy
+    harvesterBuild = [MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
+    builderBuild = [MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
+    upgraderBuild = [MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
+    repairerBuild = [MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
 }
 
 //******* End Globals *******//
-
 module.exports.loop = function () {
-
     //Clear dead creeps from memory
-    for(var name in Memory.creeps) {
-        if(!Game.creeps[name]) {
+    for (var name in Memory.creeps) {
+        if (!Game.creeps[name]) {
             delete Memory.creeps[name];
             console.log('Clearing non-existing creep memory:', name);
         }
     }
 
-    //How many harvesters are there?
+    //Count our creeps
     var harvesters = _.filter(Game.creeps, (creep) => creep.memory.role == 'harvester');
-    //Oh crap, we have no harvesters
-    if (harvesters == 0) {
+    var upgraders = _.filter(Game.creeps, (creep) => creep.memory.role == 'upgrader');
+    var builders = _.filter(Game.creeps, (creep) => creep.memory.role == 'builder');
+    var repairers = _.filter(Game.creeps, (creep) => creep.memory.role == 'repairer');
+    var miners = _.filter(Game.creeps, (creep) => creep.memory.role == 'miner');
+    var haulers = _.filter(Game.creeps, (creep) => creep.memory.role == 'hauler');
+
+
+    /*
+    * Begin creep spawn routine
+    */
+
+    //Oh crap, we have no harvesters or miners (and we don't have enough energy to spawn a miner)
+    if (harvesters.length == 0 && miners.length == 0 && Game.spawns.Spawn1.room.energyAvailable < 550) {
         var newName = 'eHarvester' + Game.time;
-        var result = Game.spawns['Spawn1'].spawnCreep(creepBuild, newName, 
-            {memory: {role: 'harvester'}});
-        if(result == OK) {
-            console.log('Spawning new harvester: ' + newName + " With build: " + creepBuild);
+        var result = Game.spawns['Spawn1'].spawnCreep([MOVE, MOVE, WORK, CARRY, CARRY], newName,
+            { memory: { role: 'harvester' } });
+        if (result == OK) {
+            console.log('Spawning new harvester: ' + newName + " With build: move,move,work,carry,carry");
         }
     }
-    
-    //How many upgraders are there?
-    var upgraders = _.filter(Game.creeps, (creep) => creep.memory.role == 'upgrader');
-    
-    //How many upgraders are there?
-    var builders = _.filter(Game.creeps, (creep) => creep.memory.role == 'builder');
-    
-    //How many repairers are there?
-    var repairers = _.filter(Game.creeps, (creep) => creep.memory.role == 'repairer');
+
+    //Keep desired number of Haulers
+    else if (haulers.length < (miners.length * 2) && miners.length > 0) {
+        var newName = 'Hauler' + Game.time;
+        var result = Game.spawns['Spawn1'].spawnCreep(haulerBuild, newName,
+            { memory: { role: 'hauler' } });
+        if (result == OK) {
+            console.log('Spawning new hauler: ' + newName + " With build: " + haulerBuild);
+        }
+    }
 
     //Keep desired number of harvesters
-    if(harvesters.length < num_harvesters) {
+    else if (harvesters.length < num_harvesters) {
         var newName = 'Harvester' + Game.time;
-        var result = Game.spawns['Spawn1'].spawnCreep(creepBuild, newName, 
-            {memory: {role: 'harvester'}});
-        if(result == OK) {
-            console.log('Spawning new harvester: ' + newName + " With build: " + creepBuild);
+        var result = Game.spawns['Spawn1'].spawnCreep(harvesterBuild, newName,
+            { memory: { role: 'harvester' } });
+        if (result == OK) {
+            console.log('Spawning new harvester: ' + newName + " With build: " + harvesterBuild);
         }
     }
-    
+
     //Keep desired number of upgraders
-    else if(upgraders.length < num_upgraders) {
+    else if (upgraders.length < num_upgraders) {
         var newName = 'Upgrader' + Game.time;
-        var result = Game.spawns['Spawn1'].spawnCreep(creepBuild, newName, 
-            {memory: {role: 'upgrader'}});
-        if(result == OK) {
-            console.log('Spawning new upgrader: ' + newName + " With build: " + creepBuild);    
+        var result = Game.spawns['Spawn1'].spawnCreep(upgraderBuild, newName,
+            { memory: { role: 'upgrader' } });
+        if (result == OK) {
+            console.log('Spawning new upgrader: ' + newName + " With build: " + upgraderBuild);
         }
     }
-    
+
     //Keep desired number of builders
-    else if(builders.length < num_builders) {
+    else if (builders.length < num_builders) {
         var newName = 'Builder' + Game.time;
-        var result = Game.spawns['Spawn1'].spawnCreep(creepBuild, newName, 
-            {memory: {role: 'builder'}});
-        if(result == OK) {
-            console.log('Spawning new builder: ' + newName + " Wish build: " + creepBuild);    
+        var result = Game.spawns['Spawn1'].spawnCreep(builderBuild, newName,
+            { memory: { role: 'builder' } });
+        if (result == OK) {
+            console.log('Spawning new builder: ' + newName + " Wish build: " + builderBuild);
         }
-        
+
     }
-    
+
     //Keep desired number of repairers
-    else if(repairers.length < num_repairers) {
+    else if (repairers.length < num_repairers) {
         var newName = 'Repairer' + Game.time;
-        var result = Game.spawns['Spawn1'].spawnCreep(creepBuild, newName, 
-            {memory: {role: 'repairer'}});
-        if(result == OK) {
-            console.log('Spawning new repairer: ' + newName + " With build: " + creepBuild);    
+        var result = Game.spawns['Spawn1'].spawnCreep(repairerBuild, newName,
+            { memory: { role: 'repairer' } });
+        if (result == OK) {
+            console.log('Spawning new repairer: ' + newName + " With build: " + repairerBuild);
         }
-        
+
     }
-    
+
+    //Keep desired number of Miners
+    //Have to keep Miners at bottom of list because energy requirements are greater than other creeps,
+    //so if/else will get hung up with insufficient energy cap
+    else if (miners.length < Game.spawns['Spawn1'].room.find(FIND_SOURCES).length) {
+        var newName = 'Miner' + Game.time;
+        var result = Game.spawns['Spawn1'].spawnCreep(minerBuild, newName,
+            { memory: { role: 'miner' } });
+        if (result == OK) {
+            console.log('Spawning new miner: ' + newName + " With build: " + minerBuild);
+        }
+    }
+
     //output if new creep spawns
-    if(Game.spawns['Spawn1'].spawning) { 
+    if (Game.spawns['Spawn1'].spawning) {
         var spawningCreep = Game.creeps[Game.spawns['Spawn1'].spawning.name];
         Game.spawns['Spawn1'].room.visual.text(
             '🛠️' + spawningCreep.memory.role,
-            Game.spawns['Spawn1'].pos.x + 1, 
-            Game.spawns['Spawn1'].pos.y, 
-            {align: 'left', opacity: 0.8});
+            Game.spawns['Spawn1'].pos.x + 1,
+            Game.spawns['Spawn1'].pos.y,
+            { align: 'left', opacity: 0.8 });
     }
 
     //Do role actions
-    for(var name in Game.creeps) {
+    for (var name in Game.creeps) {
         var creep = Game.creeps[name];
-        if(creep.memory.role == 'harvester') {
+        if (creep.memory.role == 'harvester') {
             roleHarvester.run(creep);
         }
-        if(creep.memory.role == 'upgrader') {
+        if (creep.memory.role == 'upgrader') {
             roleUpgrader.run(creep);
         }
-        if(creep.memory.role == 'builder') {
+        if (creep.memory.role == 'builder') {
             roleBuilder.run(creep);
         }
-        if(creep.memory.role == 'repairer') {
+        if (creep.memory.role == 'repairer') {
             roleRepairer.run(creep);
+        }
+        if (creep.memory.role == 'miner') {
+            roleMiner.run(creep);
+        }
+        if (creep.memory.role == 'hauler') {
+            roleHauler.run(creep);
         }
     }
 }
