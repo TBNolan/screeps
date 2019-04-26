@@ -14,6 +14,12 @@ var roleHauler = {
                 }
 
                 if (creep.memory.delivering) {
+                        var my_towers = creep.room.find(FIND_STRUCTURES, {
+                                filter: (structure) => {
+                                        return (structure.structureType == STRUCTURE_TOWER) &&
+                                                structure.energy < (structure.energyCapacity * 0.5);
+                                }
+                        })
                         var my_energy_buildings = creep.room.find(FIND_STRUCTURES, {
                                 filter: (structure) => {
                                         return (structure.structureType == STRUCTURE_SPAWN || structure.structureType == STRUCTURE_EXTENSION) &&
@@ -26,7 +32,8 @@ var roleHauler = {
                                                 _.sum(structure.store) < structure.storeCapacity;
                                 }
                         });
-                        var targets = my_energy_buildings.concat(room_containers);
+                        var buildings_and_towers = my_energy_buildings.concat(my_towers);
+                        var targets = buildings_and_towers.concat(room_containers); //in order: buildings, towers, containers
                         if (targets.length > 0) {
                                 if (creep.transfer(targets[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
                                         creep.moveTo(targets[0], { visualizePathStyle: { stroke: '#ffffff' } });

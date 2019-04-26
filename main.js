@@ -11,14 +11,14 @@ var roleBuilder = require('role.Builder');
 var roleRepairer = require('role.Repairer');
 var roleHauler = require('role.Hauler');
 var roleMiner = require('role.Miner');
+var towers = require('role.towers');
 
 //******* Globals **********/
-// Squad numbers
+// Initial Squad numbers (change after controller lvl 3, see below)
 var num_harvesters = 0;
 var num_upgraders = 2;
 var num_builders = 2;
 var num_repairers = 2;
-var num_miners = 1;
 var num_haulers = 2;
 
 /**
@@ -36,41 +36,16 @@ var num_haulers = 2;
 //Calculate parts for workers
 var mainSpawnEnergyCap = Game.spawns.Spawn1.room.energyCapacityAvailable;
 
+
 //Global build for Miners. They do not scale with Spawn Energy Cap. Requires min 550 energy
 //Efficient mining is 5 WORK parts per node.
 //Notice no carry parts as Miners will drop resources onto the ground
 var minerBuild = [WORK, WORK, WORK, WORK, WORK, MOVE];
 
-var haulerBuild = [MOVE, MOVE, CARRY, CARRY, CARRY, CARRY];
-
-
-if (mainSpawnEnergyCap < 550) {
-    //Level 1 controller 300 energy
-    harvesterBuild = [MOVE, MOVE, WORK, CARRY, CARRY];
-    builderBuild = [MOVE, MOVE, WORK, CARRY, CARRY];
-    upgraderBuild = [MOVE, MOVE, WORK, CARRY, CARRY];
-    repairerBuild = [MOVE, MOVE, WORK, CARRY, CARRY];
-} else if (mainSpawnEnergyCap < 800) {
-    //Level 2 controller 550 energy
-    harvesterBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
-    builderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
-    upgraderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
-    repairerBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
-} else if (mainSpawnEnergyCap < 1050) {
-    //Level 3 controller 800 energy
-    harvesterBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
-    builderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
-    upgraderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
-    repairerBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
-} else {
-    //Level 4+ controller 1050+ energy
-    harvesterBuild = [MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
-    builderBuild = [MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
-    upgraderBuild = [MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
-    repairerBuild = [MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
-}
-
+var builderBuild, upgraderBuild, repairerBuild, haulerBuild;
 //******* End Globals *******//
+
+
 module.exports.loop = function () {
     //Clear dead creeps from memory
     for (var name in Memory.creeps) {
@@ -88,6 +63,39 @@ module.exports.loop = function () {
     var miners = _.filter(Game.creeps, (creep) => creep.memory.role == 'miner');
     var haulers = _.filter(Game.creeps, (creep) => creep.memory.role == 'hauler');
 
+    if (mainSpawnEnergyCap < 550) {
+        //Level 1 controller 300 energy
+        builderBuild = [MOVE, MOVE, WORK, CARRY, CARRY];
+        upgraderBuild = [MOVE, MOVE, WORK, CARRY, CARRY];
+        repairerBuild = [MOVE, MOVE, WORK, CARRY, CARRY];
+        haulerBuild = [MOVE, MOVE, CARRY, CARRY, CARRY, CARRY];
+        num_haulers = miners.length * 2;
+    } else if (mainSpawnEnergyCap < 800) {
+        //Level 2 controller 550 energy
+        builderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
+        upgraderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
+        repairerBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
+        num_haulers = miners.length * 2;
+    } else if (mainSpawnEnergyCap < 1050) {
+        //Level 3 controller 800 energy
+        builderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
+        upgraderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
+        repairerBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
+        haulerBuild = [MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY]
+        num_haulers = miners.length; //our haulers are more efficient with bigger bodies, keep less of them (same energy production per tick, bigger creeps)
+        num_upgraders = 1;
+    } else {
+        //Level 4+ controller 1050+ energy
+        builderBuild = [MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
+        upgraderBuild = [MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
+        repairerBuild = [MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
+        haulerBuild = [MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY]
+        num_haulers = miners.length;
+        num_upgraders = 1;
+    }
+
+
+
 
     /*
     * Begin creep spawn routine
@@ -104,7 +112,8 @@ module.exports.loop = function () {
     }
 
     //Keep desired number of Haulers
-    else if (haulers.length < (miners.length * 2) && miners.length > 0) {
+    else if (haulers.length < num_haulers && miners.length > 0) {
+        if (haulers.length == 0) { haulerBuild = [MOVE, MOVE, CARRY, CARRY, CARRY, CARRY]; }
         var newName = 'Hauler' + Game.time;
         var result = Game.spawns['Spawn1'].spawnCreep(haulerBuild, newName,
             { memory: { role: 'hauler' } });
@@ -177,6 +186,14 @@ module.exports.loop = function () {
             { align: 'left', opacity: 0.8 });
     }
 
+
+    // find all towers
+    var towers = _.filter(Game.structures, s => s.structureType == STRUCTURE_TOWER);
+    // for each tower
+    for (let tower of towers) {
+        // run tower logic
+        tower.run();
+    }
     //Do role actions
     for (var name in Game.creeps) {
         var creep = Game.creeps[name];

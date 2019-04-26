@@ -64,24 +64,30 @@ var roleRepair = {
             }
         }
         else {
-            var dropped_energy = creep.room.find(FIND_DROPPED_RESOURCES);
-            if (dropped_energy.length > 0) {
-                if (creep.pickup(dropped_energy[0]) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(dropped_energy[0]);
-                }
-            }
-            var sources = creep.room.find(FIND_SOURCES);
             if (creep.memory.harvest_from == "container") {
                 var harvest_from_object = Game.getObjectById(creep.memory.harvest_id);
                 if (harvest_from_object.store[RESOURCE_ENERGY] == 0) {
                     creep.memory.building = true;
                 }
-                else if (creep.withdraw(harvest_from_object, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(harvest_from_object, { visualizePathStyle: { stroke: '#ffaa00' } });
+                else {
+                    if (creep.withdraw(harvest_from_object, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(harvest_from_object, { visualizePathStyle: { stroke: '#ffaa00' } });
+                    }
                 }
             }
-            else if (creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(sources[0], { visualizePathStyle: { stroke: '#ffaa00' } });
+            else {
+                var dropped_energy = creep.room.find(FIND_DROPPED_RESOURCES);
+                if (dropped_energy.length > 0) {
+                    if (creep.pickup(dropped_energy[0]) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(dropped_energy[0]);
+                    }
+                }
+                else {
+                    var sources = creep.room.find(FIND_SOURCES);
+                    if (creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(sources[0], { visualizePathStyle: { stroke: '#ffaa00' } });
+                    }
+                }
             }
         }
     }
