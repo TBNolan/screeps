@@ -11,7 +11,10 @@ var roleBuilder = require('role.Builder');
 var roleRepairer = require('role.Repairer');
 var roleHauler = require('role.Hauler');
 var roleMiner = require('role.Miner');
-var towers = require('role.towers');
+var roleLongDistanceHarvester = require('role.LongDistanceHarvester')
+require('role.towers');
+require('prototype.spawn');
+
 
 //******* Globals **********/
 // Initial Squad numbers (change after controller lvl 3, see below)
@@ -20,6 +23,8 @@ var num_upgraders = 2;
 var num_builders = 2;
 var num_repairers = 2;
 var num_haulers = 2;
+var num_longDistanceHarvesters = 0;
+var HOME = 'W21N34';
 
 /**
  * BODYPART_COST
@@ -62,9 +67,12 @@ module.exports.loop = function () {
     var repairers = _.filter(Game.creeps, (creep) => creep.memory.role == 'repairer');
     var miners = _.filter(Game.creeps, (creep) => creep.memory.role == 'miner');
     var haulers = _.filter(Game.creeps, (creep) => creep.memory.role == 'hauler');
+    var longDistanceHarvesters = _.filter(Game.creeps, (creep) => creep.memory.role == 'longDistanceHarvester');
+    var energyNeeded;
 
     if (mainSpawnEnergyCap < 550) {
         //Level 1 controller 300 energy
+        energyNeeded = 300;
         builderBuild = [MOVE, MOVE, WORK, CARRY, CARRY];
         upgraderBuild = [MOVE, MOVE, WORK, CARRY, CARRY];
         repairerBuild = [MOVE, MOVE, WORK, CARRY, CARRY];
@@ -72,12 +80,14 @@ module.exports.loop = function () {
         num_haulers = miners.length * 2;
     } else if (mainSpawnEnergyCap < 800) {
         //Level 2 controller 550 energy
+        energyNeeded = 550;
         builderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
         upgraderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
         repairerBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
         num_haulers = miners.length * 2;
     } else if (mainSpawnEnergyCap < 1050) {
         //Level 3 controller 800 energy
+        energyNeeded = 800;
         builderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
         upgraderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
         repairerBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
@@ -86,12 +96,14 @@ module.exports.loop = function () {
         num_upgraders = 1;
     } else {
         //Level 4+ controller 1050+ energy
+        energyNeeded = 1050;
         builderBuild = [MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
         upgraderBuild = [MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
         repairerBuild = [MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
         haulerBuild = [MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY]
         num_haulers = miners.length;
         num_upgraders = 1;
+        num_longDistanceHarvesters = 1;
     }
 
 
@@ -102,7 +114,7 @@ module.exports.loop = function () {
     */
 
     //Oh crap, we have no harvesters or miners (and we don't have enough energy to spawn a miner)
-    if (harvesters.length == 0 && miners.length == 0 && Game.spawns.Spawn1.room.energyAvailable < 550) {
+    if (harvesters.length == 0 && miners.length == 0 && Game.spawns.Spawn1.room.energyAvailable < energyNeeded) {
         var newName = 'eHarvester' + Game.time;
         var result = Game.spawns['Spawn1'].spawnCreep([MOVE, MOVE, WORK, CARRY, CARRY], newName,
             { memory: { role: 'harvester' } });
@@ -175,6 +187,9 @@ module.exports.loop = function () {
             console.log('Spawning new miner: ' + newName + " With build: " + minerBuild);
         }
     }
+    else if (longDistanceHarvesters.length < num_longDistanceHarvesters) {
+        name = Game.spawns['Spawn1'].createLongDistanceHarvester(mainSpawnEnergyCap, 5, HOME, 'W22N34', 0)
+    }
 
     //output if new creep spawns
     if (Game.spawns['Spawn1'].spawning) {
@@ -214,6 +229,9 @@ module.exports.loop = function () {
         }
         if (creep.memory.role == 'hauler') {
             roleHauler.run(creep);
+        }
+        if (creep.memory.role == 'longDistanceHarvester') {
+            roleLongDistanceHarvester.run(creep);
         }
     }
 }

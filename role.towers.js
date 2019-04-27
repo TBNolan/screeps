@@ -8,8 +8,8 @@ StructureTower.prototype.run =
         });
         if (closestHostile) {
             this.attack(closestHostile);
-            var username = hostiles[0].owner.username;
-            Game.notify(`User ${username} spotted`, 180); //notify once every 3 hours if enemy found
+            //var username = closestHostile.owner.username;
+            //Game.notify(`User ${username} spotted`, 180); //notify once every 3 hours if enemy found
         } else if (closestDamagedStructure) {
             this.repair(closestDamagedStructure);
         }
