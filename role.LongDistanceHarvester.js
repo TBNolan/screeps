@@ -40,8 +40,8 @@ var roleHarvester = {
                     }
                 });
                 var my_energy_buildings = my_extension_buildings.concat(my_spawn_buildings);
-                var targets = my_energy_buildings.concat(room_containers); // prioritize spawn buildings
-                var targets2 = room_containers.concat(my_energy_buildings); // prioritize storage buildings
+                //var targets = my_energy_buildings.concat(room_containers); // prioritize spawn buildings
+                var targets = room_containers.concat(my_energy_buildings); // prioritize storage buildings
                 if (targets.length > 0) {
                     if (creep.transfer(targets[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
                         creep.moveTo(targets[0], { visualizePathStyle: { stroke: '#ffffff' } });

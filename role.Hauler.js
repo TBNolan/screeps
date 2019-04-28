@@ -17,7 +17,7 @@ var roleHauler = {
                         var my_towers = creep.room.find(FIND_STRUCTURES, {
                                 filter: (structure) => {
                                         return (structure.structureType == STRUCTURE_TOWER) &&
-                                                structure.energy < (structure.energyCapacity * 0.5);
+                                                structure.energy < (structure.energyCapacity * 0.7);
                                 }
                         })
                         var my_energy_buildings = creep.room.find(FIND_STRUCTURES, {

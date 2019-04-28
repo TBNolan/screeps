@@ -23,8 +23,12 @@ var num_upgraders = 2;
 var num_builders = 2;
 var num_repairers = 2;
 var num_haulers = 2;
-var num_longDistanceHarvesters = 0;
+var enableLongDistanceHarvesters = false;
 var HOME = 'W21N34';
+var LD_NODES = [
+    ['W22N34', 0],
+    ['W22N35', 0]
+];
 
 /**
  * BODYPART_COST
@@ -58,6 +62,21 @@ module.exports.loop = function () {
             delete Memory.creeps[name];
             console.log('Clearing non-existing creep memory:', name);
         }
+    }
+    function getUnnocupiedLongDistanceNodesID() {
+        let otherLongDistanceHarvesters = _.filter(Game.creeps, (creep) => creep.memory.role == 'longDistanceHarvester');
+        for (var i = 0; i < LD_NODES.length; i++) {
+            let thisSourceHasAMiner = false;
+            for (var j = 0; j < otherLongDistanceHarvesters.length; j++) {
+                if (otherLongDistanceHarvesters[j].memory.target == LD_NODES[i][0] && otherLongDistanceHarvesters[j].memory.sourceIndex == LD_NODES[i][1]) {
+                    thisSourceHasAMiner = true;
+                }
+            }
+            if (!thisSourceHasAMiner) {
+                return i;
+            }
+        }
+        return null;
     }
 
     //Count our creeps
@@ -103,7 +122,7 @@ module.exports.loop = function () {
         haulerBuild = [MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY]
         num_haulers = miners.length;
         num_upgraders = 1;
-        num_longDistanceHarvesters = 1;
+        enableLongDistanceHarvesters = true;
     }
 
 
@@ -187,8 +206,9 @@ module.exports.loop = function () {
             console.log('Spawning new miner: ' + newName + " With build: " + minerBuild);
         }
     }
-    else if (longDistanceHarvesters.length < num_longDistanceHarvesters) {
-        name = Game.spawns['Spawn1'].createLongDistanceHarvester(mainSpawnEnergyCap, 5, HOME, 'W22N34', 0)
+    else if (enableLongDistanceHarvesters && longDistanceHarvesters.length < LD_NODES.length) {
+        let unoccupiedLongDistanceNodeID = getUnnocupiedLongDistanceNodesID();
+        name = Game.spawns['Spawn1'].createLongDistanceHarvester(mainSpawnEnergyCap, 5, HOME, LD_NODES[unoccupiedLongDistanceNodeID][0], LD_NODES[unoccupiedLongDistanceNodeID][1]);
     }
 
     //output if new creep spawns
