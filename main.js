@@ -1,8 +1,7 @@
-// Screeps code v0.1.5
+// Screeps code v0.2.0
 
 /** TODO
- * 1. Fix all screeps trying to mine; there's only 2 access points
- * 2. Optimize creepParts variables; leftover energy being unused due to fractions in Part Calculations
+ * 1. Optimize creepParts variables; leftover energy being unused due to fractions in Part Calculations
  */
 
 var roleHarvester = require('role.Harvester');
@@ -24,10 +23,10 @@ var num_builders = 2;
 var num_repairers = 2;
 var num_haulers = 2;
 var enableLongDistanceHarvesters = false;
-var HOME = 'W21N34';
-var LD_NODES = [
-    ['W22N34', 0],
-    ['W22N35', 0]
+const HOME = 'E47N32';
+const LD_NODES = [
+    //fill array with ['<roomID>', <node_index>] of applicable rooms
+    ['', 0]
 ];
 
 /**
@@ -84,7 +83,7 @@ module.exports.loop = function () {
     var upgraders = _.filter(Game.creeps, (creep) => creep.memory.role == 'upgrader');
     var builders = _.filter(Game.creeps, (creep) => creep.memory.role == 'builder');
     var repairers = _.filter(Game.creeps, (creep) => creep.memory.role == 'repairer');
-    var miners = _.filter(Game.creeps, (creep) => creep.memory.role == 'miner');
+    var miners = _.filter(Game.creeps, (creep) => creep.memory.role == 'miner' && creep.ticksToLive > 50);
     var haulers = _.filter(Game.creeps, (creep) => creep.memory.role == 'hauler');
     var longDistanceHarvesters = _.filter(Game.creeps, (creep) => creep.memory.role == 'longDistanceHarvester');
     var energyNeeded;
@@ -103,6 +102,7 @@ module.exports.loop = function () {
         builderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
         upgraderBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
         repairerBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, CARRY, CARRY, CARRY];
+        haulerBuild = [MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
         num_haulers = miners.length * 2;
     } else if (mainSpawnEnergyCap < 1050) {
         //Level 3 controller 800 energy
@@ -112,7 +112,7 @@ module.exports.loop = function () {
         repairerBuild = [MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY];
         haulerBuild = [MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY]
         num_haulers = miners.length; //our haulers are more efficient with bigger bodies, keep less of them (same energy production per tick, bigger creeps)
-        num_upgraders = 1;
+        num_upgraders = 2;
     } else {
         //Level 4+ controller 1050+ energy
         energyNeeded = 1050;
@@ -121,19 +121,29 @@ module.exports.loop = function () {
         repairerBuild = [MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
         haulerBuild = [MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY]
         num_haulers = miners.length;
-        num_upgraders = 1;
+        num_upgraders = 3;
+        num_builders = 3;
+        num_repairers = 1;
+        num_harvesters = 0;
         enableLongDistanceHarvesters = true;
     }
 
-
-
-
     /*
     * Begin creep spawn routine
+    * 
+    * Priorities:
+    * 1. Emergency Harvester if no energy creeps are available
+    * 2. Make sure each miner has a hauler
+    * 3. Create a miner if there are vacant nodes in this room
+    * 4. Make harvesters
+    * 5. Make upgraders
+    * 6. Make builders
+    * 7. Make repairers
+    * 8. Make long distance haulers
     */
 
-    //Oh crap, we have no harvesters or miners (and we don't have enough energy to spawn a miner)
-    if (harvesters.length == 0 && miners.length == 0 && Game.spawns.Spawn1.room.energyAvailable < energyNeeded) {
+    //1. Oh crap, we have no harvesters or miners (and we don't have enough energy to spawn a miner)
+    if (harvesters.length == 0 && miners.length == 0 && Game.spawns.Spawn1.room.energyAvailable <= energyNeeded) {
         var newName = 'eHarvester' + Game.time;
         var result = Game.spawns['Spawn1'].spawnCreep([MOVE, MOVE, WORK, CARRY, CARRY], newName,
             { memory: { role: 'harvester' } });
@@ -141,8 +151,7 @@ module.exports.loop = function () {
             console.log('Spawning new harvester: ' + newName + " With build: move,move,work,carry,carry");
         }
     }
-
-    //Keep desired number of Haulers
+    //2. If there are miners without haulers, Keep desired number of harvesters
     else if (haulers.length < num_haulers && miners.length > 0) {
         if (haulers.length == 0) { haulerBuild = [MOVE, MOVE, CARRY, CARRY, CARRY, CARRY]; }
         var newName = 'Hauler' + Game.time;
@@ -152,8 +161,18 @@ module.exports.loop = function () {
             console.log('Spawning new hauler: ' + newName + " With build: " + haulerBuild);
         }
     }
+    //3. Keep desired number of Miners if we have enough energy cap to do so
+    else if (mainSpawnEnergyCap > 550 && miners.length < Game.spawns['Spawn1'].room.find(FIND_SOURCES).length) {
+        var newName = 'Miner' + Game.time;
+        var result = Game.spawns['Spawn1'].spawnCreep(minerBuild, newName,
+            { memory: { role: 'miner' } });
+        if (result == OK) {
+            console.log('Spawning new miner: ' + newName + " With build: " + minerBuild);
+            roleMiner.assignResourceID(creep);
+        }
+    }
 
-    //Keep desired number of harvesters
+    //4. Do we need to make harvesters?
     else if (harvesters.length < num_harvesters) {
         var newName = 'Harvester' + Game.time;
         var result = Game.spawns['Spawn1'].spawnCreep(harvesterBuild, newName,
@@ -163,7 +182,7 @@ module.exports.loop = function () {
         }
     }
 
-    //Keep desired number of upgraders
+    //5. Keep desired number of upgraders
     else if (upgraders.length < num_upgraders) {
         var newName = 'Upgrader' + Game.time;
         var result = Game.spawns['Spawn1'].spawnCreep(upgraderBuild, newName,
@@ -173,8 +192,8 @@ module.exports.loop = function () {
         }
     }
 
-    //Keep desired number of builders
-    else if (builders.length < num_builders) {
+    //6. Keep desired number of builders (as long as there are build sites)
+    else if (Game.spawns['Spawn1'].room.find(FIND_CONSTRUCTION_SITES).length > 0 && builders.length < num_builders) {
         var newName = 'Builder' + Game.time;
         var result = Game.spawns['Spawn1'].spawnCreep(builderBuild, newName,
             { memory: { role: 'builder' } });
@@ -184,7 +203,7 @@ module.exports.loop = function () {
 
     }
 
-    //Keep desired number of repairers
+    //7. Keep desired number of repairers
     else if (repairers.length < num_repairers) {
         var newName = 'Repairer' + Game.time;
         var result = Game.spawns['Spawn1'].spawnCreep(repairerBuild, newName,
@@ -194,20 +213,10 @@ module.exports.loop = function () {
         }
 
     }
-
-    //Keep desired number of Miners
-    //Have to keep Miners at bottom of list because energy requirements are greater than other creeps,
-    //so if/else will get hung up with insufficient energy cap
-    else if (miners.length < Game.spawns['Spawn1'].room.find(FIND_SOURCES).length) {
-        var newName = 'Miner' + Game.time;
-        var result = Game.spawns['Spawn1'].spawnCreep(minerBuild, newName,
-            { memory: { role: 'miner' } });
-        if (result == OK) {
-            console.log('Spawning new miner: ' + newName + " With build: " + minerBuild);
-        }
-    }
+    //8. Keep desired number of long distance harvesters
     else if (enableLongDistanceHarvesters && longDistanceHarvesters.length < LD_NODES.length) {
         let unoccupiedLongDistanceNodeID = getUnnocupiedLongDistanceNodesID();
+        //function (energy, numberOfWorkParts, home, target, sourceIndex) {
         name = Game.spawns['Spawn1'].createLongDistanceHarvester(mainSpawnEnergyCap, 5, HOME, LD_NODES[unoccupiedLongDistanceNodeID][0], LD_NODES[unoccupiedLongDistanceNodeID][1]);
     }
 
@@ -221,7 +230,6 @@ module.exports.loop = function () {
             { align: 'left', opacity: 0.8 });
     }
 
-
     // find all towers
     var towers = _.filter(Game.structures, s => s.structureType == STRUCTURE_TOWER);
     // for each tower
@@ -229,6 +237,7 @@ module.exports.loop = function () {
         // run tower logic
         tower.run();
     }
+
     //Do role actions
     for (var name in Game.creeps) {
         var creep = Game.creeps[name];

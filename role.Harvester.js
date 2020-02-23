@@ -46,18 +46,9 @@ var roleHarvester = {
             }
         }
         else {
-            /*************Need to optimize the harvesters so they all don't go to the dropped resource **********************            
-            /*            var dropped_energy = creep.room.find(FIND_DROPPED_RESOURCES);
-            /*            if (dropped_energy.length > 0) {
-            /*                console.log('found ' + dropped_energy[0].energy + ' energy at ' + dropped_energy[0].pos);
-            /*                if(creep.pickup(dropped_energy[0]) == ERR_NOT_IN_RANGE) {
-            /*                    creep.moveTo(dropped_energy[0]);
-            /*                }
-            /*            }*/
-            //var sources = creep.room.find(FIND_SOURCES);
-            var sources = creep.room.find(FIND_SOURCES);
-            if (creep.harvest(sources[1]) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(sources[1], { visualizePathStyle: { stroke: '#ffaa00' } });
+            var closestSource = creep.pos.findClosestByPath(FIND_SOURCES);
+            if (creep.harvest(closestSource) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(closestSource, { visualizePathStyle: { stroke: '#ffaa00' } });
             }
         }
     }

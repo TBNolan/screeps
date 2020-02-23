@@ -14,31 +14,57 @@ var roleHauler = {
                 }
 
                 if (creep.memory.delivering) {
-                        var my_towers = creep.room.find(FIND_STRUCTURES, {
-                                filter: (structure) => {
-                                        return (structure.structureType == STRUCTURE_TOWER) &&
-                                                structure.energy < (structure.energyCapacity * 0.7);
-                                }
-                        })
-                        var my_energy_buildings = creep.room.find(FIND_STRUCTURES, {
+                        var closestEmptyEnergyBuilding = creep.pos.findClosestByPath(FIND_STRUCTURES, {
                                 filter: (structure) => {
                                         return (structure.structureType == STRUCTURE_SPAWN || structure.structureType == STRUCTURE_EXTENSION) &&
                                                 structure.energy < structure.energyCapacity;
                                 }
                         });
-                        var room_containers = creep.room.find(FIND_STRUCTURES, {
+                        var myTowers = creep.room.find(FIND_STRUCTURES, {
+                                filter: (structure) => {
+                                        return (structure.structureType == STRUCTURE_TOWER) &&
+                                                structure.energy < (structure.energyCapacity * 0.7);
+                                }
+                        })
+                        /*var my_energy_buildings = creep.room.find(FIND_STRUCTURES, {
+                                filter: (structure) => {
+                                        return (structure.structureType == STRUCTURE_SPAWN || structure.structureType == STRUCTURE_EXTENSION) &&
+                                                structure.energy < structure.energyCapacity;
+                                }
+                        });*/
+                        var roomContainers = creep.room.find(FIND_STRUCTURES, {
                                 filter: (structure) => {
                                         return (structure.structureType == STRUCTURE_CONTAINER || structure.structureType == STRUCTURE_STORAGE) &&
                                                 _.sum(structure.store) < structure.storeCapacity;
                                 }
                         });
-                        var buildings_and_towers = my_energy_buildings.concat(my_towers);
-                        var targets = buildings_and_towers.concat(room_containers); //in order: buildings, towers, containers
-                        if (targets.length > 0) {
-                                if (creep.transfer(targets[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                                        creep.moveTo(targets[0], { visualizePathStyle: { stroke: '#ffffff' } });
+                        var towersAndContainers = myTowers.concat(roomContainers); //in order: towers, containers
+                        if (myTowers.length == 0) { creep.memory.delivertingTo = "storage"; }
+
+                        //Alternate between towers and storage
+                        if (myTowers.length > 0 && creep.memory.delivertingTo != "storage") {
+                                if (creep.transfer(myTowers[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                                        creep.moveTo(myTowers[0], { visualizePathStyle: { stroke: '#ffffff' } });
+                                } else {
+                                        creep.memory.delivertingTo = "storage";
+                                }
+                        } else if (/*roomContainers.length > 0 && */creep.memory.delivertingTo == "storage") {
+                                //first try to fill closest empty energy buildings (by path)
+                                if (closestEmptyEnergyBuilding) {
+                                        if (creep.transfer(closestEmptyEnergyBuilding, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                                                creep.moveTo(closestEmptyEnergyBuilding, { visualizePathStyle: { stroke: '#ffffff' } });
+                                        }
+                                        else {
+                                                creep.memory.delivertingTo = "tower";
+                                        }
+                                }
+                                else if (creep.transfer(roomContainers[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                                        creep.moveTo(roomContainers[0], { visualizePathStyle: { stroke: '#ffffff' } });
+                                } else {
+                                        creep.memory.delivertingTo = "tower";
                                 }
                         }
+                        //everything is full, be idle
                         else {
                                 creep.moveTo(Game.flags["idle"]);
                         }

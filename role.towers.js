@@ -10,7 +10,17 @@ StructureTower.prototype.run =
             this.attack(closestHostile);
             //var username = closestHostile.owner.username;
             //Game.notify(`User ${username} spotted`, 180); //notify once every 3 hours if enemy found
-        } else if (closestDamagedStructure && (this.energy > (this.energyCapacity * 0.5))) {
+        }
+        if (!closestHostile) {
+            for (let name in Game.creeps) {
+                // get the creep object
+                var creep = Game.creeps[name];
+                if (creep.hits < creep.hitsMax) {
+                    this.heal(creep);
+                }
+            }
+        }
+        if (closestDamagedStructure && (this.energy > (this.energyCapacity * 0.5))) {
             this.repair(closestDamagedStructure);
         }
     }
