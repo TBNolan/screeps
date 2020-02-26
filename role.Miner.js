@@ -4,15 +4,15 @@
 var roleMiner = {
 
         /** @param {Creep} creep **/
-        run: function (creep) {
+        run: (creep) => {
                 if (creep.harvest(Game.getObjectById(creep.memory.harvestFromSource)) == ERR_NOT_IN_RANGE) {
                         creep.moveTo(Game.getObjectById(creep.memory.harvestFromSource), { visualizePathStyle: { stroke: '#ffaa00' } });
                 }
         },
-        assignResourceID: function (creep) {
+        getVacantResourceID: (spawn) => {
                 //look for other miners in room
                 let otherMiners = _.filter(Game.creeps, (creep) => creep.memory.role == 'miner' && creep.ticksToLive > 50);
-                let roomSources = creep.room.find(FIND_SOURCES);
+                let roomSources = spawn.room.find(FIND_SOURCES);
                 //Look through the sources in the room
                 for (let i = 0; i < roomSources.length; i++) {
                         let thisSourceHasAMiner = false;
@@ -22,13 +22,13 @@ var roleMiner = {
                                         thisSourceHasAMiner = true;
                                 }
                         }
-                        //No miner found this iteration, sign this miner up!
+                        //No miner found this iteration, return the sourceID
                         if (!thisSourceHasAMiner) {
-                                console.log(`Assigning miner ${creep.name} to source with ID ${roomSources[i].id}`);
-                                creep.memory.harvestFromSource = roomSources[i].id;
-                                break;
+                                console.log(`Found a vacant source with ID ${roomSources[i].id}`);
+                                return roomSources[i].id;
                         }
                 }
+                return "No vacant sources found";
         }
         
 
