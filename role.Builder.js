@@ -4,13 +4,13 @@ var roleBuilder = {
 	run: function (creep) {
 
 		if (creep.memory.building && creep.carry.energy == 0) {
-			//we just finished building
+			//we just finished building, set mem to harvest and go get it
 			creep.memory.building = false;
 			creep.say('🔄 harvest');
 			var containersWithEnergy = creep.room.find(FIND_STRUCTURES, {
-				filter: (containers) => (containers.structureType == STRUCTURE_CONTAINER || containers.structureType == STRUCTURE_STORAGE) &&
-					containers.store[RESOURCE_ENERGY] > 0
-			});
+					filter: (containers) => (containers.structureType == STRUCTURE_CONTAINER || containers.structureType == STRUCTURE_STORAGE) &&
+						containers.store[RESOURCE_ENERGY] > 0
+					});
 			if (containersWithEnergy.length > 0) {
 				//go get energy from a container
 				creep.memory.harvest_from = "container";
@@ -61,9 +61,9 @@ var roleBuilder = {
 					}
 				} else {
 					//no energy in containers, and none on the ground, gotta harvest ourselves.
-					var sources = creep.room.find(FIND_SOURCES);
-					if (creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
-						creep.moveTo(sources[0], { visualizePathStyle: { stroke: '#ffaa00' } });
+					var closestSource = creep.pos.findClosestByPath(FIND_SOURCES);
+					if (creep.harvest(closestSource) == ERR_NOT_IN_RANGE) {
+						creep.moveTo(closestSource, { visualizePathStyle: { stroke: '#ffaa00' } });
 					}
 				}
 			}
