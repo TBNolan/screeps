@@ -4,7 +4,7 @@
 var roleHarvester = {
 
     /** @param {Creep} creep **/
-    run: function (creep) {
+    run: (creep) => {
         if (creep.memory.delivering && creep.carry.energy == 0) {
             creep.memory.delivering = false;
             creep.say('Mining');
