@@ -1,5 +1,5 @@
 StructureSpawn.prototype.createLongDistanceHarvester =
-    function (energy, numberOfWorkParts, home, target, sourceIndex) {
+    function (name, energy, numberOfWorkParts, home, target, sourceIndex) {
         // create a body with the specified number of WORK parts and one MOVE part per non-MOVE part
         var body = [];
         for (let i = 0; i < numberOfWorkParts; i++) {
@@ -20,11 +20,18 @@ StructureSpawn.prototype.createLongDistanceHarvester =
         }
 
         // create creep with the created body
-        return this.createCreep(body, undefined, {
-            role: 'longDistanceHarvester',
-            home: home,
-            target: target,
-            sourceIndex: sourceIndex,
-            delivering: false
+        return this.spawnCreep(body, name, { 
+            memory: {
+                role: 'longDistanceHarvester',
+                home: home,
+                target: target,
+                sourceIndex: sourceIndex,
+                delivering: false
+            }
         });
     };
+
+StructureSpawn.prototype.spawnOurCreep = 
+    function(creepName, creepBody, creepMemory) {
+        return this.spawnCreep(creepBody, creepName, {memory: creepMemory});
+    }
