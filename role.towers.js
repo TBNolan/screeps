@@ -3,8 +3,17 @@ StructureTower.prototype.run =
     function () {
         // find closes hostile creep
         var closestHostile = this.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
+        var freshlyBuiltWall = this.pos.findClosestByRange(FIND_STRUCTURES, {
+            filter: (structure) => structure.hits < 1000 && structure.structureType != STRUCTURE_CONTROLLER
+        });
+        var criticallyDamagedStructure = this.pos.findClosestByRange(FIND_STRUCTURES, {
+            filter: (structure) => structure.hits < (structure.hitsMax * 0.0001)
+        });
+        var closestSlightlyDamagedWall = this.pos.findClosestByRange(FIND_STRUCTURES, {
+            filter: (structure) => structure.hits < (structure.hitsMax * 0.01) && structure.structureType === STRUCTURE_WALL
+        });
         var closestDamagedStructure = this.pos.findClosestByRange(FIND_STRUCTURES, {
-            filter: (structure) => structure.hits < (structure.hitsMax * 0.15)
+            filter: (structure) => structure.hits < (structure.hitsMax * 0.15) && structure.structureType != STRUCTURE_WALL
         });
         if (closestHostile) {
             this.attack(closestHostile);
@@ -20,7 +29,16 @@ StructureTower.prototype.run =
                 }
             }
         }
-        if (closestDamagedStructure && (this.energy > (this.energyCapacity * 0.5))) {
+        if (freshlyBuiltWall && (this.energy > this.energyCapacity * 0.10)) {
+            this.repair(freshlyBuiltWall);
+        }
+        else if (criticallyDamagedStructure && (this.energy > this.energyCapacity * 0.25)){
+            this.repair(criticallyDamagedStructure);
+        }
+        else if (closestDamagedStructure && (this.energy > (this.energyCapacity * 0.50))) {
             this.repair(closestDamagedStructure);
+        }
+        else if (closestSlightlyDamagedWall && (this.energy > this.energyCapacity * 0.50)){
+            this.repair(closestSlightlyDamagedWall);
         }
     }
